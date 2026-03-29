@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # ─── MongoDB ───────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: library-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - library-network
+
+  # ─── User Management Service ───────────────────────────────────────────────
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - MONGO_URI=mongodb://mongodb:27017/library_users
+      - JWT_SECRET=library_jwt_super_secret_2026
+    depends_on:
+      - mongodb
+    networks:
+      - library-network
+
+  # ─── Book Management Service ───────────────────────────────────────────────
+  book-service:
+    build: ./book-service
+    container_name: book-service
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - MONGO_URI=mongodb://mongodb:27017/library_books
+      - JWT_SECRET=library_jwt_super_secret_2026
+    depends_on:
+      - mongodb
+    networks:
+      - library-network
+
+  # ─── Reservation Management Service ───────────────────────────────────────
+  reservation-service:
+    build: ./reservation-service
+    container_name: reservation-service
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - MONGO_URI=mongodb://mongodb:27017/library_reservations
+      - JWT_SECRET=library_jwt_super_secret_2026
+    depends_on:
+      - mongodb
+    networks:
+      - library-network
+
+  # ─── Borrow & Fine Management Service ─────────────────────────────────────
+  borrow-fine-service:
+    build: ./borrow-fine-service
+    container_name: borrow-fine-service
+    restart: unless-stopped
+    ports:
+      - "3004:3004"
+    environment:
+      - PORT=3004
+      - MONGO_URI=mongodb://mongodb:27017/library_borrows
+      - JWT_SECRET=library_jwt_super_secret_2026
+    depends_on:
+      - mongodb
+    networks:
+      - library-network
+
+  # ─── API Gateway ───────────────────────────────────────────────────────────
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - JWT_SECRET=library_jwt_super_secret_2026
+      - USER_SERVICE_URL=http://user-service:3001
+      - BOOK_SERVICE_URL=http://book-service:3002
+      - RESERVATION_SERVICE_URL=http://reservation-service:3003
+      - BORROW_FINE_SERVICE_URL=http://borrow-fine-service:3004
+    depends_on:
+      - user-service
+      - book-service
+      - reservation-service
+      - borrow-fine-service
+    networks:
+      - library-network
+
+volumes:
+  mongo-data:
+
+networks:
+  library-network:
+    driver: bridge
