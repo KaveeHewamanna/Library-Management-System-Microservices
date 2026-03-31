@@ -1,12 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { LogOut, Book, Bookmark, CreditCard, Search, BookOpen, AlertCircle } from 'lucide-react';
-import { fetchBooks, fetchReservationsByUser, issueBorrow, reserveBook } from './api';
+import { LogOut, Book, Bookmark, CreditCard, Search, BookOpen, AlertCircle, Plus, X, Edit2, Trash2, Users } from 'lucide-react';
+import { fetchBooks, fetchReservationsByUser, issueBorrow, reserveBook, createMeetingRoomReservation, updateReservation, cancelReservation } from './api';
 
 export default function Dashboard({ onLogout }) {
   const [books, setBooks] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  
+  // Meeting Room Reservation States
+  const [showRoomForm, setShowRoomForm] = useState(false);
+  const [editingReservation, setEditingReservation] = useState(null);
+  const [roomForm, setRoomForm] = useState({
+    reservationTime: '',
+    numberOfMembers: 1,
+    memberNames: [''],
+    notes: ''
+  });
   
   const userName = localStorage.getItem('library_user_name');
   const userId = localStorage.getItem('library_user_id');
@@ -51,10 +61,114 @@ export default function Dashboard({ onLogout }) {
     }
   };
 
+  // Meeting Room Handlers
+  const handleMemberNameChange = (index, value) => {
+    const newNames = [...roomForm.memberNames];
+    newNames[index] = value;
+    setRoomForm({ ...roomForm, memberNames: newNames });
+  };
+
+  const addMemberField = () => {
+    setRoomForm({
+      ...roomForm,
+      memberNames: [...roomForm.memberNames, '']
+    });
+  };
+
+  const removeMemberField = (index) => {
+    setRoomForm({
+      ...roomForm,
+      memberNames: roomForm.memberNames.filter((_, i) => i !== index)
+    });
+  };
+
+  const handleCreateRoomReservation = async (e) => {
+    e.preventDefault();
+    
+    const validMembers = roomForm.memberNames.filter(name => name.trim() !== '');
+    if (validMembers.length === 0) {
+      alert('Please add at least one member name');
+      return;
+    }
+
+    try {
+      if (editingReservation) {
+        const updates = {
+          reservationTime: roomForm.reservationTime,
+          numberOfMembers: parseInt(roomForm.numberOfMembers),
+          memberNames: validMembers,
+          notes: roomForm.notes
+        };
+        await updateReservation(editingReservation._id, updates);
+        alert('Meeting room reservation updated successfully!');
+        setEditingReservation(null);
+      } else {
+        await createMeetingRoomReservation(
+          userId,
+          roomForm.reservationTime,
+          parseInt(roomForm.numberOfMembers),
+          validMembers,
+          roomForm.notes
+        );
+        alert('Meeting room reserved successfully!');
+      }
+      
+      setRoomForm({
+        reservationTime: '',
+        numberOfMembers: 1,
+        memberNames: [''],
+        notes: ''
+      });
+      setShowRoomForm(false);
+      loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to create/update reservation");
+    }
+  };
+
+  const handleEditReservation = (res) => {
+    if (res.reservationType === 'meetingRoom') {
+      setEditingReservation(res);
+      setRoomForm({
+        reservationTime: res.reservationTime,
+        numberOfMembers: res.numberOfMembers,
+        memberNames: res.memberNames || [''],
+        notes: res.notes || ''
+      });
+      setShowRoomForm(true);
+    }
+  };
+
+  const handleCancelReservation = async (resId) => {
+    if (window.confirm('Are you sure you want to cancel this reservation?')) {
+      try {
+        await cancelReservation(resId);
+        alert('Reservation cancelled successfully!');
+        loadData();
+      } catch (err) {
+        alert(err.response?.data?.message || "Failed to cancel reservation");
+      }
+    }
+  };
+
+  const handleCloseForm = () => {
+    setShowRoomForm(false);
+    setEditingReservation(null);
+    setRoomForm({
+      reservationTime: '',
+      numberOfMembers: 1,
+      memberNames: [''],
+      notes: ''
+    });
+  };
+
   const filteredBooks = books.filter(b => 
     b.title.toLowerCase().includes(search.toLowerCase()) || 
     b.author.toLowerCase().includes(search.toLowerCase())
   );
+
+  const meetingRoomReservations = reservations.filter(r => r.reservationType === 'meetingRoom');
+  const bookReservations = reservations.filter(r => r.reservationType !== 'meetingRoom');
 
   return (
     <div className="min-h-screen bg-transparent p-6 max-w-7xl mx-auto">
@@ -104,21 +218,21 @@ export default function Dashboard({ onLogout }) {
           </div>
         </div>
 
-        <div className="glass-card p-6 flex items-start gap-4 hover:-translate-y-1 transition-transform relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-24 h-24 bg-red-500/10 blur-2xl rounded-full" />
-          <div className="bg-red-500/20 p-3 rounded-xl">
-            <AlertCircle className="w-6 h-6 text-red-400" />
+        <div className="glass-card p-6 flex items-start gap-4 hover:-translate-y-1 transition-transform">
+          <div className="bg-blue-500/20 p-3 rounded-xl">
+            <Users className="w-6 h-6 text-blue-400" />
           </div>
           <div>
-            <p className="text-slate-400 text-sm">Fines Status</p>
-            <h3 className="text-xl font-bold text-slate-100 mt-1">Excellent</h3>
-            <p className="text-xs text-emerald-400 mt-1">No overdue books</p>
+            <p className="text-slate-400 text-sm">Meeting Room Bookings</p>
+            <h3 className="text-3xl font-bold text-slate-100">
+              {meetingRoomReservations.filter(r => r.status === 'pending').length}
+            </h3>
           </div>
         </div>
       </div>
 
       {/* Main Content: Books */}
-      <div className="glass-card p-6 md:p-8">
+      <div className="glass-card p-6 md:p-8 mb-10">
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-indigo-400" /> 
@@ -181,6 +295,214 @@ export default function Dashboard({ onLogout }) {
                     </div>
                   </div>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Meeting Room Reservations Section */}
+      <div className="glass-card p-6 md:p-8">
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-400" />
+            Meeting Room Reservations
+          </h2>
+          <button
+            onClick={() => setShowRoomForm(!showRoomForm)}
+            className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> New Reservation
+          </button>
+        </div>
+
+        {/* Meeting Room Form */}
+        {showRoomForm && (
+          <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 mb-8">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-slate-100">
+                {editingReservation ? 'Update Reservation' : 'Book Meeting Room'}
+              </h3>
+              <button
+                onClick={handleCloseForm}
+                className="text-slate-400 hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRoomReservation} className="space-y-4">
+              {/* Reservation Time */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Reservation Time *
+                </label>
+                <input
+                  type="datetime-local"
+                  value={roomForm.reservationTime}
+                  onChange={(e) => setRoomForm({ ...roomForm, reservationTime: e.target.value })}
+                  required
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-slate-100 placeholder-slate-400"
+                />
+              </div>
+
+              {/* Number of Members */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Number of Members *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={roomForm.numberOfMembers}
+                  onChange={(e) => setRoomForm({ ...roomForm, numberOfMembers: e.target.value })}
+                  required
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-slate-100"
+                />
+              </div>
+
+              {/* Member Names */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Member Names *
+                </label>
+                <div className="space-y-2">
+                  {roomForm.memberNames.map((name, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder={`Member ${index + 1} name`}
+                        value={name}
+                        onChange={(e) => handleMemberNameChange(index, e.target.value)}
+                        className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-slate-100 placeholder-slate-400"
+                      />
+                      {roomForm.memberNames.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeMemberField(index)}
+                          className="text-red-400 hover:text-red-300 p-2"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addMemberField}
+                  className="mt-2 text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" /> Add Member
+                </button>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Additional Notes
+                </label>
+                <textarea
+                  value={roomForm.notes}
+                  onChange={(e) => setRoomForm({ ...roomForm, notes: e.target.value })}
+                  placeholder="Any special requirements..."
+                  rows="3"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-slate-100 placeholder-slate-400"
+                />
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex gap-3 justify-end pt-4">
+                <button
+                  type="button"
+                  onClick={handleCloseForm}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-100 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-medium transition-colors"
+                >
+                  {editingReservation ? 'Update' : 'Reserve'} Meeting Room
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Reservations List */}
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-t-2 border-blue-500 border-solid rounded-full animate-spin" />
+          </div>
+        ) : meetingRoomReservations.length === 0 ? (
+          <div className="text-center py-12 text-slate-400">
+            <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>No meeting room reservations yet. Create one to get started!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {meetingRoomReservations.map(res => (
+              <div key={res._id} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:border-blue-500/40 transition-colors">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                        res.status === 'pending' ? 'bg-amber-500/20 text-amber-300' :
+                        res.status === 'confirmed' ? 'bg-emerald-500/20 text-emerald-300' :
+                        'bg-red-500/20 text-red-300'
+                      }`}>
+                        {res.status.toUpperCase()}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        Reserved on {new Date(res.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-100 mb-2">
+                      📅 {new Date(res.reservationTime).toLocaleString()}
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    {res.status === 'pending' && (
+                      <>
+                        <button
+                          onClick={() => handleEditReservation(res)}
+                          className="p-2 bg-blue-600/20 hover:bg-blue-600/30 rounded-lg text-blue-400 transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleCancelReservation(res._id)}
+                          className="p-2 bg-red-600/20 hover:bg-red-600/30 rounded-lg text-red-400 transition-colors"
+                          title="Cancel"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                  <div>
+                    <p className="text-slate-400 text-xs mb-1">Members</p>
+                    <p className="text-slate-200 font-medium">{res.numberOfMembers}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-xs mb-1">Attending</p>
+                    <p className="text-slate-200 text-sm">{res.memberNames?.join(', ')}</p>
+                  </div>
+                </div>
+
+                {res.notes && (
+                  <div className="pt-2 border-t border-slate-700/50">
+                    <p className="text-xs text-slate-400 mb-1">Notes</p>
+                    <p className="text-xs text-slate-300">{res.notes}</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>

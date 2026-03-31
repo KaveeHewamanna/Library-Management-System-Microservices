@@ -8,7 +8,6 @@ const mongoose = require('mongoose');
  *       type: object
  *       required:
  *         - userId
- *         - bookId
  *       properties:
  *         _id:
  *           type: string
@@ -18,8 +17,25 @@ const mongoose = require('mongoose');
  *           example: "60d0fe4f5311236168a109ca"
  *         bookId:
  *           type: string
- *           description: MongoDB ObjectId of the book
+ *           description: MongoDB ObjectId of the book (for book reservations)
  *           example: "60d0fe4f5311236168a109cb"
+ *         reservationType:
+ *           type: string
+ *           enum: [book, meetingRoom]
+ *           description: Type of reservation
+ *           default: book
+ *         reservationTime:
+ *           type: string
+ *           format: date-time
+ *           description: Time when member needs to come (for meeting room reservations)
+ *         numberOfMembers:
+ *           type: integer
+ *           description: Number of members attending (for meeting room reservations)
+ *         memberNames:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Names of all attending members
  *         reservationDate:
  *           type: string
  *           format: date-time
@@ -42,7 +58,15 @@ const mongoose = require('mongoose');
 const reservationSchema = new mongoose.Schema(
   {
     userId:          { type: String, required: true },
-    bookId:          { type: String, required: true },
+    bookId:          { type: String },
+    reservationType: { 
+      type: String, 
+      enum: ['book', 'meetingRoom'], 
+      default: 'book' 
+    },
+    reservationTime: { type: Date },
+    numberOfMembers: { type: Number },
+    memberNames:     { type: [String], default: [] },
     reservationDate: { type: Date, default: Date.now },
     expiryDate:      { type: Date },
     status:          {
