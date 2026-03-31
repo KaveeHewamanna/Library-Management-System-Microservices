@@ -93,9 +93,17 @@ exports.getUserById = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { name, phone, address, role } = req.body;
+
+    // Build patch object — only include fields that were actually sent
+    const patch = {};
+    if (name    !== undefined) patch.name    = name;
+    if (phone   !== undefined) patch.phone   = phone;
+    if (address !== undefined) patch.address = address;
+    if (role    !== undefined) patch.role    = role;
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { name, phone, address, role },
+      { $set: patch },
       { new: true, runValidators: true }
     ).select('-password');
 
