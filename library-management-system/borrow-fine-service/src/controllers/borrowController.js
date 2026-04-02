@@ -121,3 +121,34 @@ exports.payFine = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// ─── DELETE /api/borrows/:id/delete ──────────────────────────────────────────
+exports.deleteBorrow = async (req, res) => {
+  try {
+    const borrow = await Borrow.findById(req.params.id);
+    if (!borrow) {
+      return res.status(404).json({
+        success: false,
+        message: 'Borrow record not found.'
+      });
+    }
+
+    // Optional: Prevent deletion of active borrows with unpaid fines
+    if (borrow.status === 'borrowed' && borrow.fineAmount > 0 && !borrow.finePaid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete active borrow with unpaid fine. Please pay the fine or return the book first.'
+      });
+    }
+
+    await Borrow.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Borrow record deleted successfully.',
+      deletedRecord: borrow
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

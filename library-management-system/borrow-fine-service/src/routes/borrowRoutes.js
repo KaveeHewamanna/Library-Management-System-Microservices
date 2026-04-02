@@ -1,7 +1,7 @@
 const express = require('express');
-const router  = express.Router();
-const auth    = require('../middleware/auth');
-const ctrl    = require('../controllers/borrowController');
+const router = express.Router();
+const auth = require('../middleware/auth');
+const ctrl = require('../controllers/borrowController');
 
 /**
  * @swagger
@@ -142,5 +142,34 @@ router.get('/:id', auth, ctrl.getBorrowById);
  *         description: Borrow record not found
  */
 router.put('/:id/return', auth, ctrl.returnBook);
+
+/**
+ * @swagger
+ * /api/borrows/{id}/delete:
+ *   delete:
+ *     tags: [Borrows]
+ *     summary: Delete a borrow record by ID
+ *     description: |
+ *       Permanently removes a borrow record from the database.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Borrow record ID
+ *     responses:
+ *       200:
+ *         description: Borrow record deleted successfully
+ *       400:
+ *         description: Cannot delete
+ *       404:
+ *         description: Borrow record not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id/delete', auth, ctrl.deleteBorrow);
 
 module.exports = router;
