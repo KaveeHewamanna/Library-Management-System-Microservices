@@ -15,7 +15,7 @@ const ctrl    = require('../controllers/reservationController');
  * /api/reservations:
  *   post:
  *     tags: [Reservations]
- *     summary: Create a new book reservation
+ *     summary: Create a new book or meeting room reservation
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -24,20 +24,41 @@ const ctrl    = require('../controllers/reservationController');
  *         application/json:
  *           schema:
  *             type: object
- *             required: [userId, bookId]
+ *             required: [userId]
  *             properties:
  *               userId:
  *                 type: string
  *                 example: "60d0fe4f5311236168a109ca"
+ *               reservationType:
+ *                 type: string
+ *                 enum: [book, meetingRoom]
+ *                 default: book
  *               bookId:
  *                 type: string
+ *                 description: Required for book reservations
  *                 example: "60d0fe4f5311236168a109cb"
+ *               reservationTime:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Required for meeting room reservations
+ *               numberOfMembers:
+ *                 type: integer
+ *                 description: Required for meeting room reservations
+ *                 example: 5
+ *               memberNames:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Required for meeting room reservations
+ *                 example: ["John Doe", "Jane Smith", "Bob Johnson"]
  *               notes:
  *                 type: string
  *                 example: "Please hold at front desk"
  *     responses:
  *       201:
- *         description: Reservation created — expires in 7 days
+ *         description: Reservation created successfully
+ *       400:
+ *         description: Missing required fields for reservation type
  *       500:
  *         description: Server error
  */
@@ -105,7 +126,7 @@ router.get('/:id', auth, ctrl.getReservationById);
  * /api/reservations/{id}:
  *   put:
  *     tags: [Reservations]
- *     summary: Update reservation status or notes
+ *     summary: Update reservation details (status, notes, or meeting room details)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -114,7 +135,9 @@ router.get('/:id', auth, ctrl.getReservationById);
  *         required: true
  *         schema:
  *           type: string
+ *         description: The reservation's MongoDB ObjectId
  *     requestBody:
+ *       required: true
  *       content:
  *         application/json:
  *           schema:
@@ -123,13 +146,47 @@ router.get('/:id', auth, ctrl.getReservationById);
  *               status:
  *                 type: string
  *                 enum: [pending, confirmed, cancelled, expired]
+ *                 example: "confirmed"
+ *                 description: Update reservation status
  *               notes:
  *                 type: string
+ *                 example: "Room prepared with projector"
+ *                 description: Update notes/special requirements
+ *               reservationTime:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2026-04-05T10:00:00.000Z"
+ *                 description: Update meeting time (for meeting room reservations)
+ *               numberOfMembers:
+ *                 type: integer
+ *                 example: 5
+ *                 description: Update number of members (for meeting room reservations)
+ *               memberNames:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["Kaveesha Hewamanna", "Yasitha Bhanuka", "Himashi Eranga", "Dinethma", "Rumesh"]
+ *                 description: Update list of member names (for meeting room reservations)
  *     responses:
  *       200:
- *         description: Reservation updated
+ *         description: Reservation updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Invalid request data
  *       404:
- *         description: Not found
+ *         description: Reservation not found
+ *       500:
+ *         description: Server error
  */
 router.put('/:id', auth, ctrl.updateReservation);
 
