@@ -3,8 +3,28 @@ const Reservation = require('../models/Reservation');
 // ─── POST /api/reservations ───────────────────────────────────────────────────
 exports.createReservation = async (req, res) => {
   try {
-    const { userId, bookId, notes } = req.body;
-    const reservation = new Reservation({ userId, bookId, notes });
+    const { userId, bookId, reservationType, reservationTime, numberOfMembers, memberNames, notes } = req.body;
+    
+    // For meeting room reservations, ensure required fields are provided
+    if (reservationType === 'meetingRoom') {
+      if (!reservationTime || !numberOfMembers || !memberNames || memberNames.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'For meeting room reservations, reservationTime, numberOfMembers, and memberNames are required.'
+        });
+      }
+    }
+
+    const reservation = new Reservation({
+      userId,
+      bookId: reservationType === 'book' ? bookId : undefined,
+      reservationType: reservationType || 'book',
+      reservationTime,
+      numberOfMembers,
+      memberNames,
+      notes
+    });
+
     await reservation.save();
     res.status(201).json({
       success: true,
@@ -50,13 +70,29 @@ exports.getReservationsByUser = async (req, res) => {
 // ─── PUT /api/reservations/:id ────────────────────────────────────────────────
 exports.updateReservation = async (req, res) => {
   try {
-    const { status, notes } = req.body;
+    const { status, notes, reservationTime, numberOfMembers, memberNames } = req.body;
+    
+    // Get existing reservation first
+    const existingReservation = await Reservation.findById(req.params.id);
+    if (!existingReservation) {
+      return res.status(404).json({ success: false, message: 'Reservation not found.' });
+    }
+
+    const updateData = {};
+    if (status !== undefined) updateData.status = status;
+    if (notes !== undefined) updateData.notes = notes;
+    if (existingReservation.reservationType === 'meetingRoom') {
+      if (reservationTime !== undefined) updateData.reservationTime = reservationTime;
+      if (numberOfMembers !== undefined) updateData.numberOfMembers = numberOfMembers;
+      if (memberNames !== undefined) updateData.memberNames = memberNames;
+    }
+
     const reservation = await Reservation.findByIdAndUpdate(
       req.params.id,
-      { status, notes },
+      updateData,
       { new: true, runValidators: true }
     );
-    if (!reservation) return res.status(404).json({ success: false, message: 'Reservation not found.' });
+
     res.json({ success: true, message: 'Reservation updated.', data: reservation });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
