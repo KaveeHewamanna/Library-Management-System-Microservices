@@ -90,6 +90,11 @@ export const deleteBook = async (bookId) => {
   return response.data;
 };
 
+export const updateBook = async (bookId, bookData) => {
+  const response = await api.put(`/books/${bookId}`, bookData);
+  return response.data;
+};
+
 export const fetchAllReservations = async () => {
   const response = await api.get('/reservations');
   return response.data;

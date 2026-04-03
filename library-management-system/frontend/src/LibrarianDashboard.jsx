@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LogOut, Users, BookOpen, Calendar, AlertCircle, 
-  Plus, Trash2, CheckCircle, Clock, Pencil, X
+  Plus, Trash2, CheckCircle, Clock, Edit2, Pencil, X 
 } from 'lucide-react';
 import { 
   fetchAllUsers, deleteUser, updateUser,
-  fetchBooks, addBook, deleteBook,
+  fetchBooks, addBook, deleteBook, updateBook,
   fetchAllReservations,
   fetchAllBorrows, returnBook
 } from './api';
@@ -91,8 +91,12 @@ function BooksPanel() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [newBook, setNewBook] = useState({ title: '', author: '', isbn: '', totalCopies: 1 });
+  const [editingBook, setEditingBook] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   useEffect(() => { load() }, []);
+  
   const load = async () => {
     setLoading(true);
     const res = await fetchBooks();
@@ -106,8 +110,41 @@ function BooksPanel() {
       await addBook({ ...newBook, availableCopies: newBook.totalCopies });
       setShowAdd(false);
       setNewBook({ title: '', author: '', isbn: '', totalCopies: 1 });
+      setMessage({ type: 'success', text: 'Book added successfully!' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       load();
-    } catch (err) { alert("Failed to add book."); }
+    } catch (err) { 
+      setMessage({ type: 'error', text: 'Failed to add book.' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    }
+  };
+
+  const handleEdit = (book) => {
+    setEditingBook({ ...book });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingBook) return;
+    try {
+      // Only send the editable fields to the backend
+      const updateData = {
+        title: editingBook.title,
+        author: editingBook.author,
+        isbn: editingBook.isbn,
+        totalCopies: editingBook.totalCopies,
+        availableCopies: editingBook.availableCopies,
+      };
+      await updateBook(editingBook._id, updateData);
+      setShowEditModal(false);
+      setEditingBook(null);
+      setMessage({ type: 'success', text: 'Book updated successfully!' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+      load();
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to update book.' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -130,6 +167,12 @@ function BooksPanel() {
           <Plus className="w-4 h-4" /> {showAdd ? 'Cancel' : 'New Book'}
         </button>
       </div>
+
+      {message.text && (
+        <div className={`mb-4 p-4 rounded-lg ${message.type === 'success' ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300' : 'bg-red-500/20 border border-red-500/50 text-red-300'}`}>
+          {message.text}
+        </div>
+      )}
 
       {showAdd && (
         <form onSubmit={handleAdd} className="mb-8 p-4 bg-black/20 border border-fuchsia-500/20 rounded-xl grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -162,7 +205,8 @@ function BooksPanel() {
                     {b.availableCopies} / {b.totalCopies}
                   </span>
                 </td>
-                <td className="p-3 text-right">
+                <td className="p-3 text-right space-x-2">
+                  <button onClick={() => handleEdit(b)} className="p-2 hover:bg-cyan-500/20 text-cyan-400 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
                   <button onClick={() => handleDelete(b._id)} className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>
@@ -170,6 +214,15 @@ function BooksPanel() {
           </tbody>
         </table>
       </div>
+
+      {showEditModal && editingBook && (
+        <EditBookModal 
+          book={editingBook} 
+          onSave={handleSaveEdit} 
+          onClose={() => { setShowEditModal(false); setEditingBook(null); }}
+          onChange={setEditingBook}
+        />
+      )}
     </div>
   )
 }
@@ -463,6 +516,106 @@ function UsersPanel() {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ==========================================
+// Edit Book Modal
+// ==========================================
+
+function EditBookModal({ book, onSave, onClose, onChange }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-900/95 border border-fuchsia-500/20 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 flex justify-between items-center p-6 border-b border-fuchsia-500/20 bg-slate-900/95">
+          <h3 className="text-xl font-bold text-fuchsia-300">Edit Book</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 transition-colors">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-slate-300 mb-2 font-medium">Title *</label>
+              <input 
+                type="text"
+                className="glass-input w-full"
+                required
+                value={book.title || ''} 
+                onChange={e => onChange({...book, title: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-300 mb-2 font-medium">Author *</label>
+              <input 
+                type="text"
+                className="glass-input w-full"
+                required
+                value={book.author || ''} 
+                onChange={e => onChange({...book, author: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-slate-300 mb-2 font-medium">ISBN *</label>
+            <input 
+              type="text"
+              className="glass-input w-full"
+              required
+              value={book.isbn || ''} 
+              onChange={e => onChange({...book, isbn: e.target.value})}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-slate-300 mb-2 font-medium">Total Copies *</label>
+              <input 
+                type="number"
+                className="glass-input w-full"
+                required
+                min="1"
+                value={book.totalCopies || 1} 
+                onChange={e => onChange({...book, totalCopies: parseInt(e.target.value) || 1})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-300 mb-2 font-medium">Available Copies *</label>
+              <input 
+                type="number"
+                className="glass-input w-full"
+                required
+                min="0"
+                max={book.totalCopies || 1}
+                value={book.availableCopies || 0} 
+                onChange={e => onChange({...book, availableCopies: Math.min(parseInt(e.target.value) || 0, book.totalCopies)})}
+              />
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-800/40 border border-slate-700/30 rounded-lg text-xs text-slate-400">
+            <p>Note: Only the above fields can be edited. Other book properties are managed separately.</p>
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 flex gap-3 p-6 border-t border-fuchsia-500/20 bg-slate-900/95">
+          <button 
+            onClick={onClose}
+            className="flex-1 glass-button border border-slate-600/50 text-slate-300 hover:bg-slate-800/50"
+          >
+            Cancel
+          </button>
+          <button 
+            onClick={onSave}
+            className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded-lg font-medium transition-colors"
+          >
+            Save Changes
+          </button>
+        </div>
       </div>
     </div>
   )
