@@ -51,6 +51,32 @@ export const issueBorrow = async (userId, bookId) => {
 };
 
 // ==========================================
+// Meeting Room Reservation Endpoints
+// ==========================================
+
+export const createMeetingRoomReservation = async (userId, reservationTime, numberOfMembers, memberNames, notes) => {
+  const response = await api.post('/reservations', {
+    userId,
+    reservationType: 'meetingRoom',
+    reservationTime,
+    numberOfMembers,
+    memberNames,
+    notes
+  });
+  return response.data;
+};
+
+export const updateReservation = async (reservationId, updateData) => {
+  const response = await api.put(`/reservations/${reservationId}`, updateData);
+  return response.data;
+};
+
+export const cancelReservation = async (reservationId) => {
+  const response = await api.delete(`/reservations/${reservationId}`);
+  return response.data;
+};
+
+// ==========================================
 // Administration / Librarian Endpoints
 // ==========================================
 
@@ -91,6 +117,11 @@ export const fetchAllUsers = async () => {
 
 export const deleteUser = async (userId) => {
   const response = await api.delete(`/users/${userId}`);
+  return response.data;
+};
+
+export const updateUser = async (userId, userData) => {
+  const response = await api.put(`/users/${userId}`, userData);
   return response.data;
 };
 

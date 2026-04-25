@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  LogOut, Users, BookOpen, Calendar, AlertCircle, 
-  Plus, Trash2, CheckCircle, Clock, Edit2, X 
+  LogOut, Users, BookOpen, Calendar, AlertCircle,
+  Plus, Trash2, CheckCircle, Clock, Edit2, X, Pencil
 } from 'lucide-react';
 import { 
-  fetchAllUsers, deleteUser,
+  fetchAllUsers, deleteUser, updateUser,
   fetchBooks, addBook, deleteBook, updateBook,
   fetchAllReservations,
   fetchAllBorrows, returnBook
@@ -347,6 +347,9 @@ function BorrowsPanel() {
 function UsersPanel() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editingUser, setEditingUser] = useState(null);   // holds the user being edited
+  const [editForm, setEditForm] = useState({ name: '', phone: '', address: '', role: 'member' });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { load() }, []);
   const load = async () => {
@@ -366,6 +369,30 @@ function UsersPanel() {
     } catch (err) { alert("Failed to delete."); }
   };
 
+  const openEdit = (user) => {
+    setEditingUser(user);
+    setEditForm({
+      name:    user.name    || '',
+      phone:   user.phone   || '',
+      address: user.address || '',
+      role:    user.role    || 'member',
+    });
+  };
+
+  const handleEditSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await updateUser(editingUser._id, editForm);
+      setEditingUser(null);
+      load();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update user.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) return <div className="text-center py-20 animate-pulse text-indigo-400">Loading Directory...</div>;
 
   return (
@@ -373,19 +400,109 @@ function UsersPanel() {
       <h2 className="text-2xl font-bold flex items-center gap-2 text-fuchsia-300 mb-6">
         <Users className="w-6 h-6" /> Member Directory
       </h2>
+
+      {/* ── Edit Modal ─────────────────────────────────────────────── */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-fuchsia-500/30 rounded-2xl shadow-2xl p-8 w-full max-w-md relative">
+            <button
+              onClick={() => setEditingUser(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-red-400 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-xl font-bold text-fuchsia-300 mb-1">Edit User</h3>
+            <p className="text-xs text-slate-500 mb-6 font-mono">{editingUser.email}</p>
+            <form onSubmit={handleEditSave} className="space-y-4">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Full Name</label>
+                <input
+                  className="glass-input w-full"
+                  value={editForm.name}
+                  onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Phone</label>
+                <input
+                  className="glass-input w-full"
+                  value={editForm.phone}
+                  onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                  placeholder="+94771234567"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Address</label>
+                <input
+                  className="glass-input w-full"
+                  value={editForm.address}
+                  onChange={e => setEditForm({ ...editForm, address: e.target.value })}
+                  placeholder="123 Main St, Colombo"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Role</label>
+                <select
+                  className="glass-input w-full"
+                  value={editForm.role}
+                  onChange={e => setEditForm({ ...editForm, role: e.target.value })}
+                >
+                  <option value="member">member</option>
+                  <option value="librarian">librarian</option>
+                  <option value="admin">admin</option>
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="flex-1 py-2 rounded-lg border border-slate-600 text-slate-400 hover:bg-slate-800 transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-semibold transition-colors text-sm disabled:opacity-60"
+                >
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── User Cards ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {users.map(u => (
           <div key={u._id} className="p-4 bg-slate-800/40 border border-slate-700/50 rounded-xl relative group">
-            <button onClick={() => handleDelete(u._id)} className="absolute top-4 right-4 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {/* Action buttons — visible on hover */}
+            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => openEdit(u)}
+                title="Edit user"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-fuchsia-400 hover:bg-fuchsia-500/10 transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleDelete(u._id)}
+                title="Delete user"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-300 font-bold border border-indigo-500/30">
                 {u.name.charAt(0)}
               </div>
               <div>
                 <h3 className="font-semibold text-slate-200">{u.name}</h3>
-                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${u.role === 'librarian' ? 'bg-fuchsia-500/20 text-fuchsia-300' : 'bg-slate-700 text-slate-300'}`}>
+                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${u.role === 'librarian' || u.role === 'admin' ? 'bg-fuchsia-500/20 text-fuchsia-300' : 'bg-slate-700 text-slate-300'}`}>
                   {u.role}
                 </span>
               </div>
@@ -393,6 +510,8 @@ function UsersPanel() {
             <div className="text-xs text-slate-400 space-y-1">
               <p>Email: <span className="text-slate-300">{u.email}</span></p>
               <p>ID: <span className="font-mono text-slate-300">{u.membershipId}</span></p>
+              {u.phone   && <p>Phone: <span className="text-slate-300">{u.phone}</span></p>}
+              {u.address && <p>Address: <span className="text-slate-300">{u.address}</span></p>}
               <p>Joined: {new Date(u.createdAt).toLocaleDateString()}</p>
             </div>
           </div>
