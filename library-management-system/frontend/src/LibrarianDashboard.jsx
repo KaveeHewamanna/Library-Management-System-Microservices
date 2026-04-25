@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  LogOut, Users, BookOpen, Calendar, AlertCircle,
-  Plus, Trash2, CheckCircle, Clock, Edit2, X, Pencil
+  LogOut, Users, BookOpen, Calendar, AlertCircle, 
+  Plus, Trash2, CheckCircle, Clock, Edit2, Pencil, X
 } from 'lucide-react';
 import { 
   fetchAllUsers, deleteUser, updateUser,
